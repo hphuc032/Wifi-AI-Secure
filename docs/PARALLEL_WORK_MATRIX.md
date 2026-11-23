@@ -1,88 +1,113 @@
-# Wifi-AI Secure — ma trận giai đoạn làm song song và tránh xung đột
+# Wifi-AI Secure — Wave & Dependency Master Plan
 
-> Mục tiêu: ba thành viên có thể phát triển đồng thời nhưng không sửa trùng file, không tự ý đổi schema/API của nhau và không tích hợp dữ liệu chưa được xác minh.
+> Mục tiêu: 3 thành viên phát triển song song theo từng Wave, giảm tối đa việc sửa trùng file/module và chỉ chuyển giai đoạn khi các dependency gate đã đạt.
 
-## 1. Nguyên tắc chia việc
+## Quy ước thành viên
 
-1. Mỗi module có **một người sở hữu chính**. Người khác góp ý qua Issue/PR, không sửa trực tiếp cùng file.
-2. Có thể làm song song khi đầu vào đã được mô tả bằng **contract** hoặc mock fixture.
-3. Việc phụ thuộc dữ liệu thật chỉ bắt đầu sau khi Hoàng Phúc xác nhận schema, nhãn, thứ tự feature và split.
-4. Thay đổi contract dùng chung phải được cả ba đồng ý trước khi merge vào `develop`.
-5. Mỗi người làm trên branch riêng; Pull Request vào `develop`; không commit trực tiếp vào `main`/ `develop`.
-6. Không commit AWID3 gốc, PCAP riêng tư, model lớn hoặc secret vào Git.
+- **Hoàng Phúc (HP) — DATA:** AWID3, data audit, loader, cleaning, preprocessing, feature schema, dataset split.
+- **Quốc Đạt (QD) — AI:** Random Forest, XGBoost, FeedForward, Isolation Forest, training, evaluation, model packaging.
+- **Tiến Đạt (TD) — APP:** API/backend, dashboard, database, alert, integration, test hệ thống.
+- **DONE:** chỉ đánh dấu khi có PR đã merge, test/log hoặc artifact chứng minh hoàn thành. Việc tạo branch/Issue không đồng nghĩa task code đã DONE.
 
-## 2. Bảng giai đoạn tổng thể — ai làm cùng lúc được?
+## 1. Master execution table — Wave + Dependency
 
-| Giai đoạn | Hoàng Phúc — DATA | Quốc Đạt — AI | Tiến Đạt — APP | Có thể làm song song? | Điều kiện / điểm bàn giao |
-|---|---|---|---|---|---|
-| GĐ 0. Thống nhất nền tảng (1–2 ngày) | Cùng thống nhất nguồn AWID3, tên trường nhãn dự kiến, cách lưu dữ liệu | Cùng thống nhất bài toán, đầu ra mô hình và chỉ số đánh giá | Tạo repo skeleton, quy ước branch/PR và môi trường mẫu | **Cả 3 làm chung** | Chốt Python, folder ownership, data contract, prediction/event contract |
-| GĐ 1. Khảo sát + dựng khung (Tuần 1) | Tải/kiểm kê AWID3; kiểm tra CSV, nhãn, dtype, missing, phân bố lớp | Dựng khung train/evaluate bằng **synthetic fixture** theo contract; chưa kết luận hiệu năng | Dựng API/UI/SQLite skeleton bằng **mock prediction** | **Cả 3 làm song song** | AI và APP chỉ dùng fixture/mock; không tự giả định feature AWID3 |
-| GĐ 2. Xác minh schema + module độc lập (Tuần 2) | Chốt feature schema, label mapping, báo cáo chất lượng; viết loader/cleaner ban đầu | Viết Random Forest baseline và khung metric trên fixture; chuẩn bị XGBoost/NN skeleton | Hoàn thiện dashboard, endpoint nhận event mẫu, lịch sử cảnh báo | **Cả 3 làm song song** | Schema/label mapping cần được DATA review; mock data phải đánh dấu rõ |
-| GĐ 3. Data pipeline + AI baseline (Tuần 3–4) | Hoàn thiện preprocessing, split train/valid/test, metadata và leakage audit | Khi có split đã duyệt, huấn luyện RF/XGBoost; sau đó FeedForward; Isolation Forest là nhánh thử nghiệm riêng | Tiếp tục API, alert rule, database và dashboard bằng mock event | **Song song có điều kiện** | AI không train kết luận chính thức trước khi nhận split/schema đã duyệt; APP vẫn không phụ thuộc AI |
-| GĐ 4. Tích hợp model (Tuần 5–6) | Đóng gói transformer, feature order, label mapping; hỗ trợ kiểm tra input | Đóng gói predictor, model version, output contract, metrics | Thay mock predictor bằng model thật; nối API → inference → DB → UI | **Có phần song song, có phần phải nối tiếp** | Chỉ tích hợp khi preprocessor + predictor cùng tuân thủ contract; đổi schema phải báo cả nhóm |
-| GĐ 5. Kiểm thử hệ thống (Tuần 7) | Kiểm tra input lỗi, dữ liệu lệch schema, tái lập split | Phân tích false positive/negative, class-wise metrics, latency | Integration tests, lỗi API/DB/UI, kiểm tra event history | **Cả 3 kiểm thử song song**, sau đó chạy E2E chung | Dùng cùng model artifact, config và test fixture đã version hóa |
-| GĐ 6. Chốt và demo (Tuần 8) | Chốt tài liệu dataset, preprocessing và giới hạn | Chốt kết quả thực nghiệm, bảng so sánh và giải thích AI | Chốt README, cách cài, demo flow và đóng gói ứng dụng | **Làm song song**, cuối tuần tổng duyệt chung | Chỉ đưa số liệu đã chạy thật; không ghi mock result thành kết quả thực nghiệm |
+| Wave | Hoàng Phúc — DATA | Tiến Đạt — APP | Quốc Đạt — AI | Điều kiện / Dependency |
+|---|---|---|---|---|
+| **Wave 0.1** | DATA-00: xác định nguồn AWID3, phiên bản/file cần dùng, cách lưu dữ liệu | APP-00: chuẩn bị repo skeleton, app entry point và môi trường chạy | AI-00: chốt bài toán phân loại, anomaly detection và chỉ số đánh giá | Cả 3 thống nhất Python, cấu trúc thư mục, cách chạy project |
+| **Wave 0.2** | DATA-01: kiểm kê file, schema sơ bộ, label candidate, dung lượng | APP-01: dựng API/UI skeleton, SQLite schema draft | AI-01: dựng train/evaluate skeleton bằng synthetic fixture | Có thể làm song song; AI và APP chỉ dùng dữ liệu mẫu, chưa giả định schema AWID3 |
+| **Wave 0.3** | DATA-02: báo cáo cột, dtype, missing, duplicate, label distribution | APP-02: dashboard hiển thị mock detection event | AI-02: tạo synthetic fixture đúng format contract, baseline pipeline chưa dùng để báo cáo kết quả | Review data schema và prediction/event contract |
+| **Gate S0** | Review feature/label schema | Review API/event schema | Review model input/output | Contract chung được cả 3 xác nhận; không tự ý đổi tên field sau gate |
+| **Wave 1.1** | DATA-03: hoàn thiện loader đọc AWID3 theo file thực tế | APP-03: hoàn thiện layout Dashboard, trang Detection/History | AI-03: implement Random Forest baseline trên fixture | Ba module độc lập, không sửa file của nhau |
+| **Wave 1.2** | DATA-04: cleaning, xử lý missing/invalid, loại cột không phù hợp có lý do | APP-04: endpoint nhận event/prediction mock và lưu SQLite | AI-04: metric pipeline, confusion matrix, per-class report trên fixture | DATA cung cấp schema đã xác minh; APP vẫn dùng mock rõ ràng |
+| **Wave 1.3** | DATA-05: label mapping và feature schema cố định | APP-05: bộ lọc lịch sử, trang chi tiết event | AI-05: tích hợp RF với schema đã xác minh, kiểm tra input shape | **G1 — Schema Ready:** tên feature, dtype, label field và label mapping được xác minh |
+| **Wave 1.4** | DATA-06: tạo train/validation/test split và split manifest | APP-06: hoàn thiện event contract, trạng thái alert và log | AI-06: chạy RF baseline trên split chính thức, lưu config/seed | AI chỉ dùng split đã được DATA bàn giao; không dùng Test để tuning |
+| **Gate S1** | Bàn giao dataset split + preprocessing metadata | Xác nhận app event schema | Xác nhận RF baseline và evaluation report | **G2 — Dataset Ready:** split tái lập, leakage audit sơ bộ, preprocessor fit trên Train |
+| **Wave 2.1** | DATA-07: hoàn thiện preprocessing pipeline và transform API | APP-07: hoàn thiện backend service và database repository | AI-07: XGBoost training/tuning trên Train/Validation | Có thể song song; giữ nguyên feature order và split đã chốt |
+| **Wave 2.2** | DATA-08: kiểm tra class imbalance, duplicate/overlap và leakage | APP-08: hoàn thiện alert rules/configuration, dashboard metrics placeholder | AI-08: FeedForward training, checkpoint, early stopping | QD dùng đúng preprocessing đã bàn giao; tuning chỉ trên Validation |
+| **Wave 2.3** | DATA-09: đóng gói preprocessor, feature schema, label mapping, version metadata | APP-09: chuẩn bị model adapter interface và integration tests bằng mock | AI-09: Isolation Forest trên Normal-only Train, threshold chọn bằng Validation | Isolation Forest là nhánh anomaly riêng; không thay thế classifier |
+| **Wave 2.4** | Review data quality + reproducibility | Review app contract và event flow | AI-10: so sánh RF/XGBoost/FeedForward; per-class metrics, Macro F1, FPR | **G3 — Model/Data Ready:** artifacts và metadata khớp schema, kết quả có thể tái lập |
+| **Wave 3.1** | DATA-10: hỗ trợ kiểm tra feature input và transform trên dữ liệu mới | APP-10: tích hợp Predictor thật vào API, thay mock adapter | AI-11: đóng gói predictor thống nhất, model version, output schema | Cần G2 + G3; không tích hợp nếu feature order hoặc label mapping không khớp |
+| **Wave 3.2** | DATA-11: test file lỗi, cột thiếu/thừa, dữ liệu ngoài phân phối | APP-11: nối API → inference → alert → SQLite → Dashboard | AI-12: kiểm tra prediction consistency, confidence/anomaly score và latency | Có thể test module song song; sau đó chạy E2E cùng một model artifact |
+| **Wave 3.3** | DATA-12: xác nhận pipeline chạy lại từ raw data tới processed data | APP-12: chạy offline CSV replay và hiển thị detection history | AI-13: đánh giá cuối trên Test untouched, phân tích false positive/negative | **G4 — End-to-End Ready:** demo offline từ dữ liệu đầu vào đến cảnh báo |
+| **Gate S3** | Review pipeline và dữ liệu | Review toàn bộ luồng app | Review kết quả AI | Cả 3 cùng xác nhận hệ thống offline chạy ổn định |
+| **Wave 4.1 (Optional)** | PCAP-01: khảo sát cách ánh xạ packet/frame thành feature tương thích | PCAP-02: thêm giao diện nạp/replay PCAP nếu được duyệt | PCAP-03: đánh giá khả năng inference và domain shift | Chỉ bắt đầu sau G4; không giả định PCAP tạo trực tiếp đúng feature AWID3 |
+| **Wave 4.2 (Optional)** | Kiểm tra feature extractor và dữ liệu lab được phép | Tích hợp luồng PCAP replay vào app | Đánh giá trên bộ PCAP riêng, ghi rõ giới hạn | Không gọi là live detection nếu mới chỉ replay file |
+| **Wave 5.1** | QA-01: unit test data/preprocessing, reproducibility | QA-02: API, DB, dashboard, error handling | QA-03: model loading, inference, metrics regression | Cả 3 chạy test độc lập |
+| **Wave 5.2** | Fix lỗi dữ liệu | Fix lỗi app/integration | Fix lỗi model/evaluation | Không thay đổi contract lớn nếu chưa review |
+| **Wave 5.3** | DOC-01: tài liệu AWID3, schema, preprocessing | DOC-02: README cài đặt, API, Dashboard, demo guide | DOC-03: mô hình, metrics, thực nghiệm, limitations | Tài liệu phải khớp đúng phần code và kết quả thực tế |
+| **Wave 5.4** | Review release | Review release và chạy trên máy sạch | Review model artifacts và reproducibility | **G5 — Release Ready:** test đạt, hướng dẫn cài đặt, demo tái lập |
+| **Wave 5.5** | Hỗ trợ nghiệm thu | Merge develop → main sau khi được duyệt | Hỗ trợ demo và kiểm tra kết quả | Tag release; không merge khi còn lỗi P0/P1 |
 
-## 3. Bảng việc nào làm chung, việc nào không nên làm chung?
+## 2. Các Gate bắt buộc — không vượt bước khi chưa đạt
 
-| Công việc | Cách làm | Lý do |
-|---|---|---|
-| Chốt schema feature, label mapping và prediction contract | **Cả 3 cùng họp/chốt**; Hoàng Phúc ghi schema, Quốc Đạt xác nhận input AI, Tiến Đạt xác nhận output app | Đây là ranh giới kết nối giữa ba module |
-| Khảo sát AWID3 và viết loader/cleaner | Hoàng Phúc sở hữu; Quốc Đạt review yêu cầu feature/label | Tránh hai người cùng sửa pipeline dữ liệu |
-| Viết mô hình và training loop | Quốc Đạt sở hữu; Hoàng Phúc cung cấp dataset contract | Tránh sửa trùng code AI |
-| Dashboard, API, DB, alert | Tiến Đạt sở hữu; Quốc Đạt review predictor interface | Tránh sửa trùng app |
-| Viết test | Mỗi người viết test cho module của mình; cả 3 cùng viết/duyệt E2E test | Unit test độc lập, E2E cần tích hợp |
-| Thay đổi file contract chung | Tạo PR riêng, thông báo cả nhóm, cả 3 review | Ngăn schema/API thay đổi âm thầm |
-| Merge vào develop | Người sở hữu tạo PR; ít nhất 1 người khác review; thay đổi contract cần cả 3 đồng ý | Giảm xung đột và lỗi tích hợp |
-| Demo cuối tuần | Cả 3 cùng tham gia, mỗi người demo phần mình | Phát hiện lỗi giao tiếp sớm |
-
-## 4. Quyền sở hữu file — không sửa chồng chéo
-
-| Đường dẫn | Người chịu trách nhiệm | Quy tắc |
-|---|---|---|
-| `src/data/**`, `data/**`, `configs/data/**`, `tests/data/**` | Hoàng Phúc | Thành viên khác chỉ góp ý qua PR |
-| `src/models/**`, `src/training/**`, `src/evaluation/**`, `tests/models/**`, `docs/ai/**` | Quốc Đạt | Không tự thay đổi schema dữ liệu |
-| `src/api/**`, `src/app/**`, `src/database/**`, `src/alerts/**`, `tests/api/**` | Tiến Đạt | Dùng mock cho tới khi predictor thật sẵn sàng |
-| `docs/INTERFACE_CONTRACT.md`, `configs/shared/**`, `requirements.txt` | Đồng sở hữu | Báo cả nhóm; thay đổi phải được review trước khi merge |
-| `README.md`, `docs/WORK_PLAN.md` | Tiến Đạt điều phối; cả nhóm góp nội dung | Tránh sửa đồng thời; thống nhất một PR tại một thời điểm |
-
-## 5. Các cổng bàn giao bắt buộc (dependency gates)
-
-| Gate | Người bàn giao | Bên nhận | Điều kiện đạt |
+| Gate | Người bàn giao | Người nhận | Điều kiện để qua Gate |
 |---|---|---|---|
-| G1 — Data schema ready | Hoàng Phúc | Quốc Đạt + Tiến Đạt | Tên cột/feature, dtype, label column và label mapping được xác minh trên AWID3 thực tế |
-| G2 — Dataset split ready | Hoàng Phúc | Quốc Đạt | Train/Validation/Test manifest, seed, split strategy và preprocessing chỉ fit trên Train |
-| G3 — Model interface ready | Quốc Đạt | Tiến Đạt | Hàm predict thống nhất, output schema, model metadata; không bịa confidence nếu model không hỗ trợ |
-| G4 — App integration ready | Tiến Đạt | Cả nhóm | App nhận event/prediction, lưu DB, hiển thị lịch sử; phân biệt offline replay và live capture |
-| G5 — Release ready | Cả 3 | Cả 3 | Unit + integration test đạt; kết quả đánh giá có thể tái lập; README/demo đã kiểm tra |
+| **G0 — Project/Contract Ready** | Cả 3 | Cả 3 | Repo, branch, folder ownership, Python/dependency policy, data contract và event contract thống nhất |
+| **G1 — Schema Ready** | Hoàng Phúc | Quốc Đạt + Tiến Đạt | Đã xác minh cột nhãn, feature được chọn, dtype, thứ tự feature, label mapping từ AWID3 thật |
+| **G2 — Dataset Ready** | Hoàng Phúc | Quốc Đạt | Train/Validation/Test manifest, seed, split strategy, leakage checks; preprocessing chỉ fit trên Train |
+| **G3 — Model Ready** | Quốc Đạt | Tiến Đạt | Predictor API, model artifact, model version, label mapping, output schema và evaluation report |
+| **G4 — E2E Ready** | Tiến Đạt điều phối | Cả 3 | Nạp dữ liệu → preprocessing → AI inference → alert → SQLite → Dashboard chạy được |
+| **G5 — Release Ready** | Cả 3 | Cả 3 | Unit/integration test, README, demo, báo cáo, model/data version và giới hạn đã được kiểm tra |
 
-**Không vượt gate bằng lời nói.** Người bàn giao phải đính kèm PR, file schema/metadata, test log hoặc demo phù hợp.
+**Quy tắc:** Nếu gate chưa đạt, người nhận có thể tiếp tục làm mock, test fixture hoặc phần độc lập; không được dùng kết quả chưa xác minh làm kết quả chính thức.
 
-## 6. Nhịp làm việc đề xuất
+## 3. Việc nào có thể làm đồng thời?
 
-| Thời điểm | Việc cần làm | Người tham gia |
+| Nhóm công việc | Có thể chạy song song? | Điều kiện |
 |---|---|---|
-| Đầu tuần (Thứ 2) | Chọn task từ GitHub Issues, xác nhận người phụ trách và đầu ra | Cả 3 |
-| Giữa tuần (Thứ 4) | Kiểm tra blocker, contract và thay đổi có thể ảnh hưởng module khác | Cả 3 |
-| Cuối tuần (Thứ 6) | Review PR, merge phần độc lập vào develop, chạy integration test | Cả 3 |
-| Sau merge | Demo ngắn, cập nhật Issue và kế hoạch tuần tiếp theo | Cả 3 |
+| AWID3 audit ↔ AI skeleton ↔ Dashboard mock | **Có** | AI dùng synthetic fixture; APP dùng mock event |
+| Loader/cleaner ↔ RF code skeleton ↔ API/SQLite skeleton | **Có** | Mỗi người chỉ sửa folder sở hữu |
+| Preprocessing/split ↔ App UI ↔ AI tuning | **Có điều kiện** | AI tuning chính thức chỉ sau G2; APP tiếp tục bằng mock |
+| XGBoost ↔ FeedForward | **Có** | Quốc Đạt quản lý riêng config/artifact; tránh cùng sửa một file model |
+| Dashboard ↔ Alert/DB | **Có thể** | Tiến Đạt tự chia module/file hoặc làm lần lượt nếu cùng file |
+| Model packaging ↔ Dashboard hoàn thiện | **Có** | Cùng tuân thủ contract; APP chưa tích hợp model thật trước G3 |
+| Data validation ↔ AI evaluation ↔ App integration test | **Có** | Dùng cùng phiên bản schema/model/data |
+| PCAP parser ↔ Live capture | **Chưa nên làm sớm** | Chỉ sau G4 và phải xác minh cách tạo feature tương thích |
+| E2E test và release | **Không hoàn toàn** | Có thể chuẩn bị riêng, nhưng nghiệm thu cuối phải chạy chung |
 
-Mỗi thành viên cập nhật Issue theo mẫu: **Done / Next / Blocked / PR link**.
+## 4. Code ownership — tránh sửa cùng file
 
-## 7. Quy tắc tránh xung đột Git
+| Khu vực | Owner | Người khác xử lý thế nào? |
+|---|---|---|
+| `src/data/**`, `data/**`, `configs/data/**`, `tests/data/**` | Hoàng Phúc | Tạo Issue/comment hoặc review PR; không tự commit vào các file này |
+| `src/models/**`, `src/training/**`, `src/evaluation/**`, `tests/models/**`, `docs/ai/**` | Quốc Đạt | Hoàng Phúc góp ý schema; Tiến Đạt góp ý predictor contract qua PR |
+| `src/api/**`, `src/app/**`, `src/database/**`, `src/alerts/**`, `tests/api/**` | Tiến Đạt | Không tự sửa app; thay đổi interface đề nghị qua Issue/PR |
+| `docs/INTERFACE_CONTRACT.md`, `configs/shared/**`, `requirements.txt` | Cả 3 đồng sở hữu | Một PR tại một thời điểm; cả 3 review nếu đổi contract/dependency |
+| `README.md`, `docs/WORK_PLAN.md`, `docs/WAVE_DEPENDENCY_PLAN.md` | Tiến Đạt điều phối | Thành viên gửi nội dung cho owner; tránh cùng sửa file |
 
-- Trước khi bắt đầu task: `git fetch origin`, cập nhật branch cá nhân từ `develop`.
-- Chỉ sửa các đường dẫn thuộc module được giao.
-- Commit nhỏ, mô tả rõ; không gom thay đổi của người khác vào commit của mình.
-- Nếu cần sửa file do người khác sở hữu: mở Issue/comment và chờ owner xác nhận.
-- Không sửa cùng một file đồng thời. Nếu buộc phải sửa file chung, một người tạo PR trước; người còn lại chờ PR merge rồi cập nhật branch.
-- Trước PR: chạy test liên quan, kiểm tra `git diff`, không commit dữ liệu/model lớn.
-- Khi có conflict: người sở hữu file giải quyết cùng người tạo thay đổi; không tự chọn “accept theirs/ours” nếu chưa hiểu nội dung.
+## 5. Git workflow theo từng Wave
 
-## 8. Quyết định kỹ thuật cần nhớ
+- Branch cá nhân: `feature/data-pipeline`, `feature/ai-models`, `feature/dashboard`.
+- Tất cả PR cá nhân merge vào `develop`; không push trực tiếp `main`/ `develop`.
+- Trước khi bắt đầu Wave mới: fetch và cập nhật branch từ `develop`.
+- PR phải ghi task ID, file thay đổi, test đã chạy, dependency liên quan và ảnh/metrics nếu có.
+- Một file chỉ có một owner. Nếu cần thay đổi file của người khác, mở Issue và chờ owner xác nhận.
+- Contract thay đổi cần thông báo cả nhóm và cập nhật contract test.
+- Merge xong mới đánh dấu task DONE; cập nhật Issue theo `Done / Next / Blocked / PR link`.
 
-- AWID3 là dữ liệu nghiên cứu offline. Huấn luyện/đánh giá AWID3 không tự chứng minh hệ thống đã giám sát Wi-Fi live được.
-- Không mặc định số lượng feature hoặc số lớp theo repository tham khảo; xác minh từ đúng bản AWID3 nhóm tải về.
-- Không fit preprocessing trên toàn bộ dataset; fit trên Train, transform Validation/Test.
-- Isolation Forest là nhánh anomaly detection riêng; anomaly score không phải tên một loại tấn công.
-- Dashboard có thể phát triển sớm bằng mock, nhưng phải ghi rõ mock và thay bằng model thật ở Giai đoạn 4.
+## 6. Nhịp điều phối
+
+| Thời điểm | Hoạt động |
+|---|---|
+| Đầu tuần | Chọn Wave/task có thể chạy, xác nhận dependency và người owner |
+| Giữa tuần | Kiểm tra blocker, contract, file conflict và artifact bàn giao |
+| Cuối tuần | Review PR, merge vào develop, chạy integration tests |
+| Sau mỗi Gate | Cả 3 xác nhận đạt/chưa đạt trước khi chuyển Wave |
+
+## 7. Các lưu ý kỹ thuật không được bỏ qua
+
+- Không mặc định AWID3 có đúng 29 feature hoặc 14 class theo nguồn tham khảo; xác minh trên đúng phiên bản nhóm tải.
+- Không commit raw AWID3, PCAP riêng tư, model artifact lớn hoặc secrets lên Git.
+- Không fit scaler/encoder/imputer trên toàn bộ dataset; chỉ fit trên Train.
+- Không dùng Test để tuning hoặc chọn threshold.
+- Isolation Forest anomaly score không phải tên loại tấn công.
+- AWID3 offline result không chứng minh live Wi-Fi detection. PCAP/live capture là giai đoạn mở rộng, cần feature extraction tương thích và dữ liệu lab được phép.
+- Cảnh báo là tín hiệu hỗ trợ phân tích, không tự động khẳng định một thiết bị/người dùng đang tấn công.
+
+## 8. Trạng thái hiện tại
+
+Các branch, tài liệu khởi tạo và ba GitHub Issues đã được tạo trước đó. **Các task triển khai DATA/AI/APP trong bảng này chưa được tự động đánh dấu DONE**; nhóm cần cập nhật trạng thái theo PR/commit/test thực tế.
+
+- [Issue #1 — Hoàng Phúc / DATA](https://github.com/hphuc032/Wifi-AI-Secure/issues/1)
+- [Issue #2 — Quốc Đạt / AI](https://github.com/hphuc032/Wifi-AI-Secure/issues/2)
+- [Issue #3 — Tiến Đạt / APP](https://github.com/hphuc032/Wifi-AI-Secure/issues/3)

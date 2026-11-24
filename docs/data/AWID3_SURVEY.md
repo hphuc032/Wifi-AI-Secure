@@ -2,7 +2,7 @@
 
 **DATA-00 · Wave 0.1 · Wifi-AI Secure · 23/11/2026**
 
-**Phiên bản chọn cho dự án:** AWID3 (CSV) do University of the Aegean phân phối. Khảo sát này dựa trên tài liệu công bố. Chưa yêu cầu cấp quyền tải và chưa kiểm tra tệp dữ liệu trong workspace.
+**Phiên bản chọn cho dự án:** AWID3 (CSV) do University of the Aegean phân phối. Trang AWID xác nhận một yêu cầu tải đã được gửi. Ảnh xác nhận chưa cho biết gói được chọn. Workspace chưa có tệp để kiểm tra.
 
 ## 1. Giới thiệu AWID3
 
@@ -106,6 +106,21 @@ data/
 Giữ các tệp lớn trên ổ đĩa local hoặc kho nhóm có kiểm soát quyền theo điều khoản phát hành. Loại dữ liệu gốc, capture và dữ liệu dẫn xuất lớn khỏi Git. Dùng Git để lưu tài liệu, manifest, checksum SHA-256 và fixture tổng hợp nhỏ. Cây thư mục trên là đề xuất cho các bước sau. [7][8]
 
 ## 11. Nguồn tham khảo
+
+### Đối chiếu với repo mẫu wifi-ids
+
+Repo mẫu là nguồn tham khảo triển khai. Nguồn xác nhận cấu trúc gói AWID3 của nhóm vẫn là các tệp chính thức sau khi được cấp quyền.
+
+| Điểm tham khảo | Cách áp dụng trong Wifi-AI Secure |
+| --- | --- |
+| [Đọc CSV theo khối và xuất thống kê](https://github.com/shahal-dev/wifi-ids/blob/main/README.md) | DATA-01/02 sẽ kiểm kê theo tệp, đọc theo khối để đếm dòng và nhãn, đồng thời lưu đường dẫn tương đối trong manifest để truy vết nguồn. Giữ thông tin thư mục để đối chiếu với nhãn trong tệp. |
+| [Kiểm tra thiếu feature trong loader](https://github.com/shahal-dev/wifi-ids/blob/main/src/data/dataset.py) | Sau khi xác minh header, dùng danh sách feature có thứ tự từ schema của nhóm. Báo rõ file và cột thiếu hoặc thừa khi đầu vào sai hợp đồng. |
+| [Cấu hình feature, nhãn và seed](https://github.com/shahal-dev/wifi-ids/blob/main/configs/config.yaml) | Dùng danh sách kịch bản của repo mẫu để đối chiếu khi kiểm kê. Lấy số chiều và ánh xạ lớp từ schema đã xác minh. README mẫu ghi cả 29 và 30 feature, còn config đặt 29 feature và 14 lớp. Các giá trị đó chỉ mô tả repo mẫu. |
+| [Imputation và cân bằng lớp](https://github.com/shahal-dev/wifi-ids/blob/main/src/data/dataset.py) | Loader mẫu fit median imputer ngay trên dữ liệu được nạp khi gặp giá trị thiếu. Với Wifi-AI Secure, xác định split trước, fit bộ biến đổi một lần trên Train và dùng lại cho Validation/Test. Nếu cân bằng lớp, chỉ thực hiện trên Train. |
+
+Đã xác minh [script tiền xử lý mẫu](https://github.com/shahal-dev/wifi-ids/blob/main/preprocess_script/awid3_preprocessor.py). Công cụ DATA áp dụng cách đọc theo khối, báo khác biệt header và phân nhóm trường bằng tên. Không nhập mã nguồn, danh sách lớp hoặc danh sách cột của repo mẫu.
+
+### Nguồn công bố và tài liệu dự án
 
 Các nguồn dưới đây được kiểm tra trong đợt khảo sát DATA-00. Nguồn [3] là biểu mẫu đăng ký hiện hành. Đường dẫn tải cũ trong mục *Data Availability Statement* của [5] trả về HTTP 404 tại thời điểm kiểm tra.
 
